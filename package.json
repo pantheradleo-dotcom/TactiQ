@@ -1,0 +1,35 @@
+{
+  "name": "tactiq",
+  "version": "4.2.0",
+  "description": "TactiQ — Assistant OPJ local",
+  "author": "TactiQ",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win --x64",
+    "pack":  "electron-builder --dir"
+  },
+  "dependencies": {
+    "pdf-parse": "^1.1.1",
+    "tesseract.js": "^5.1.0"
+  },
+  "build": {
+    "appId": "fr.tactiq.app",
+    "productName": "TactiQ",
+    "copyright": "TactiQ",
+    "asar": true,
+    "directories": { "output": "dist" },
+    "files": ["main.js","preload.js","src/**/*"],
+    "win": {
+      "target": [{ "target": "portable", "arch": ["x64"] }],
+      "icon": "assets/icon.ico",
+      "sign": null,
+      "signingHashAlgorithms": null
+    },
+    "portable": { "artifactName": "TactiQ.exe" }
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.0.0"
+  }
+}

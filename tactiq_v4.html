@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TactiQ V3 — Assistant OPJ local</title>
+<link rel="icon" href="data:," />
+<style>
+:root{
+  --bg:#080d14;--bg2:#0e1520;--bg3:#141d2b;--bg4:#1a2333;
+  --line:#1e2d40;--line2:#2a3d56;
+  --ink:#dce8f8;--ink2:#94a8c4;--ink3:#5a7090;
+  --accent:#f0a020;--accent2:#c07800;--accentSoft:rgba(240,160,32,.1);
+  --green:#2ec46a;--red:#e04f54;
+  --rail:48px;--panel-w:300px;
+  --font:'DM Sans','Segoe UI',Arial,sans-serif;--mono:'Cascadia Code','Consolas',monospace;
+  --radius:10px;
+}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px}
+body{overflow:hidden}.hidden{display:none!important}
+button,input,textarea,select{font:inherit;color:inherit}button{cursor:pointer;border:none;background:none}
+
+/* ── SHELL : rail | drawer | main ── */
+.shell{display:flex;height:100vh;width:100vw}
+
+/* ── RAIL ── */
+.rail{
+  width:var(--rail);flex-shrink:0;
+  background:var(--bg2);border-right:1px solid var(--line);
+  display:flex;flex-direction:column;align-items:center;
+  padding:8px 0;gap:2px;z-index:20;
+}
+.rail-brand{
+  width:32px;height:32px;border-radius:8px;
+  border:1px solid var(--accent);
+  display:grid;place-items:center;
+  color:var(--accent);font-weight:800;font-size:.75rem;
+  margin-bottom:10px;
+}
+.rail-sep{width:24px;height:1px;background:var(--line);margin:6px 0}
+.rail-btn{
+  width:36px;height:36px;border-radius:8px;
+  display:grid;place-items:center;
+  color:var(--ink3);font-size:15px;
+  transition:background .15s,color .15s;
+  position:relative;
+}
+.rail-btn:hover{background:var(--bg4);color:var(--ink)}
+.rail-btn.active{background:var(--accentSoft);color:var(--accent)}
+.rail-btn[data-tip]:hover::after{
+  content:attr(data-tip);
+  position:absolute;left:44px;top:50%;transform:translateY(-50%);
+  background:var(--bg4);border:1px solid var(--line2);
+  color:var(--ink);font-size:.72rem;white-space:nowrap;
+  padding:4px 8px;border-radius:6px;pointer-events:none;z-index:99;
+}
+.rail-spacer{flex:1}
+.rail-status{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--ink3);margin-bottom:8px;
+  transition:background .3s;
+}
+.rail-status.ok{background:var(--green)}.rail-status.err{background:var(--red)}.rail-status.load{background:var(--accent)}
+
+/* ── DRAWER ── */
+.drawer{
+  width:0;overflow:hidden;
+  background:var(--bg2);border-right:1px solid var(--line);
+  transition:width .22s cubic-bezier(.4,0,.2,1);
+  display:flex;flex-direction:column;
+  position:relative;z-index:15;flex-shrink:0;
+}
+.drawer.open{width:var(--panel-w)}
+.drawer-inner{width:var(--panel-w);display:flex;flex-direction:column;height:100%;overflow:hidden}
+.drawer-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 12px;border-bottom:1px solid var(--line);
+  font:.65rem var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);
+  flex-shrink:0;
+}
+.drawer-close{color:var(--ink3);font-size:16px;padding:2px 4px;border-radius:4px}
+.drawer-close:hover{color:var(--ink);background:var(--bg4)}
+.drawer-body{flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:12px}
+.drawer-body::-webkit-scrollbar{width:4px}.drawer-body::-webkit-scrollbar-thumb{background:var(--line2);border-radius:2px}
+
+/* ── FORMS ── */
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font:.62rem var(--mono);color:var(--ink3);letter-spacing:.08em;text-transform:uppercase}
+input[type=text],textarea,select{
+  width:100%;background:var(--bg);border:1px solid var(--line2);border-radius:8px;
+  color:var(--ink);padding:7px 9px;outline:none;
+  transition:border-color .15s;
+}
+input[type=text]:focus,textarea:focus,select:focus{border-color:var(--accent2)}
+textarea{min-height:72px;resize:vertical}
+.summary{font-size:.73rem;color:var(--ink3);line-height:1.5}
+.row{display:flex;gap:6px;align-items:center}
+
+/* ── BUTTONS ── */
+.btn{border-radius:8px;padding:7px 11px;font-weight:600;font-size:.82rem;transition:opacity .15s}
+.btn-primary{background:var(--accent);color:#1a0800}
+.btn-primary:hover{opacity:.88}
+.btn-soft{background:var(--bg4);border:1px solid var(--line2);color:var(--ink2)}
+.btn-soft:hover{border-color:var(--line2);color:var(--ink);background:var(--bg3)}
+.btn-tiny{padding:4px 8px;border-radius:6px;border:1px solid var(--line2);background:var(--bg4);color:var(--ink2);font-size:.72rem}
+.btn-tiny:hover{color:var(--ink);border-color:var(--ink3)}
+
+/* ── DROPZONE ── */
+.dropzone{
+  border:1px dashed var(--line2);border-radius:8px;padding:10px;
+  text-align:center;background:rgba(255,255,255,.015);cursor:pointer;
+  transition:border-color .15s;
+}
+.dropzone:hover,.dropzone.drag{border-color:var(--accent)}
+.dropzone input{display:none}
+
+/* ── FILE LIST ── */
+.file-list{display:flex;flex-direction:column;gap:6px}
+.file-item{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--bg)}
+.file-top{display:flex;justify-content:space-between;gap:6px;align-items:flex-start}
+.file-check{display:flex;align-items:flex-start;gap:7px;font-size:.82rem;font-weight:600}
+.file-check span{word-break:break-word}
+.taglist{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+.tag{font-size:.62rem;padding:1px 6px;border:1px solid var(--line2);border-radius:999px;color:var(--ink3)}
+.file-meta summary{cursor:pointer;color:var(--ink2);font-size:.72rem;margin-top:5px}
+
+/* ── MAIN ── */
+.main{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+
+/* ── TOPBAR ── */
+.topbar{
+  height:44px;flex-shrink:0;
+  display:flex;align-items:center;gap:8px;
+  padding:0 14px;border-bottom:1px solid var(--line);
+  background:var(--bg2);
+}
+.topbar-case{
+  flex:1;display:flex;align-items:center;gap:10px;min-width:0;overflow:hidden;
+}
+.topbar-title{font-weight:700;font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
+.topbar-type{font-size:.72rem;color:var(--ink3);white-space:nowrap}
+.topbar-tags{display:flex;gap:4px;overflow:hidden}
+.topbar-tag{font-size:.65rem;padding:2px 7px;border:1px solid var(--line2);border-radius:999px;color:var(--ink3);white-space:nowrap}
+.topbar-actions{display:flex;gap:6px;align-items:center;flex-shrink:0}
+
+/* ── MODEBAR ── */
+.modebar{
+  display:flex;gap:4px;padding:6px 10px;border-bottom:1px solid var(--line);
+  overflow-x:auto;flex-shrink:0;
+}
+.modebar::-webkit-scrollbar{height:0}
+.mode-btn{
+  background:transparent;border:1px solid transparent;
+  color:var(--ink3);padding:5px 10px;border-radius:999px;
+  font-weight:600;font-size:.78rem;white-space:nowrap;
+  transition:all .15s;
+}
+.mode-btn:hover{color:var(--ink);background:var(--bg4)}
+.mode-btn.active{border-color:var(--accent2);color:var(--accent);background:var(--accentSoft)}
+
+/* ── STATUS STRIP ── (compact, single line) */
+.state-strip{
+  display:flex;gap:5px;padding:4px 10px;border-bottom:1px solid var(--line);
+  overflow:hidden;flex-shrink:0;align-items:center;
+}
+.state-pill{
+  font:.62rem var(--mono);padding:2px 7px;border-radius:999px;
+  border:1px solid var(--line);color:var(--ink3);white-space:nowrap;
+  transition:color .2s,border-color .2s;
+}
+.state-pill.on{color:var(--ink2);border-color:var(--line2)}
+
+/* ── CHAT ── */
+.chat{
+  flex:1;overflow-y:auto;
+  padding:14px 18px;display:flex;flex-direction:column;gap:12px;
+}
+.chat::-webkit-scrollbar{width:4px}.chat::-webkit-scrollbar-thumb{background:var(--line2);border-radius:2px}
+.empty{margin:auto;text-align:center;max-width:680px}
+.empty h2{font-size:1.1rem;font-weight:700;color:var(--ink2);margin-bottom:6px}
+.empty p{font-size:.82rem;color:var(--ink3);margin-bottom:14px}
+.quick{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.quick button{
+  text-align:left;padding:10px 12px;
+  border:1px solid var(--line2);background:var(--bg3);
+  color:var(--ink);border-radius:10px;font-size:.82rem;
+  transition:border-color .15s,background .15s;
+}
+.quick button:hover{border-color:var(--accent2);background:var(--bg4)}
+.quick button strong{display:block;margin-bottom:2px}
+.quick button small{color:var(--ink3);font-size:.72rem}
+
+/* ── MESSAGES ── */
+.msg{max-width:840px}
+.msg.user{align-self:flex-end}
+.bubble{padding:10px 13px;border-radius:10px;background:var(--bg3);border:1px solid var(--line);line-height:1.6}
+.bubble h1,.bubble h2,.bubble h3{margin:.6em 0 .3em;color:var(--ink)}
+.bubble ul{padding-left:1.2em}.bubble p{margin:.3em 0}
+.bubble code{background:var(--bg);border:1px solid var(--line2);border-radius:4px;padding:1px 5px;font-family:var(--mono);font-size:.82rem}
+.bubble pre{background:var(--bg);border:1px solid var(--line2);border-radius:8px;padding:10px;overflow:auto;margin:.5em 0}
+.bubble pre code{background:none;border:none;padding:0}
+.msg.user .bubble{background:rgba(240,160,32,.07);border-color:rgba(240,160,32,.2)}
+.meta{font-size:.65rem;color:var(--ink3);margin-top:4px;display:flex;gap:6px;flex-wrap:wrap}
+.actions{display:flex;gap:5px;margin-top:5px;flex-wrap:wrap}
+
+/* ── INPUT BAR ── */
+.inputbar{
+  border-top:1px solid var(--line);padding:8px 12px;
+  background:var(--bg2);display:flex;flex-direction:column;gap:6px;flex-shrink:0;
+}
+.quick-actions{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
+.quick-chip{
+  border:1px solid var(--line2);background:var(--bg4);color:var(--ink2);
+  padding:4px 9px;border-radius:999px;font-size:.73rem;
+  transition:all .15s;
+}
+.quick-chip:hover{border-color:var(--accent2);color:var(--accent)}
+.quick-more{position:relative}
+.quick-more summary{list-style:none;border:1px solid var(--line2);padding:4px 9px;border-radius:999px;color:var(--ink2);font-size:.73rem;background:var(--bg4);cursor:pointer}
+.quick-more-menu{position:absolute;bottom:30px;left:0;background:var(--bg3);border:1px solid var(--line2);border-radius:8px;padding:5px;display:grid;gap:4px;min-width:160px;z-index:10}
+.quick-more-menu button{background:var(--bg4);border:1px solid var(--line2);color:var(--ink2);padding:6px 9px;border-radius:6px;text-align:left;font-size:.78rem}
+.quick-more-menu button:hover{color:var(--ink);border-color:var(--ink3)}
+.inputrow{display:flex;gap:8px;align-items:flex-end}
+.chatInput{flex:1;min-height:52px;max-height:140px;border-radius:8px}
+.hintline{display:flex;justify-content:space-between;color:var(--ink3);font-size:.65rem;padding:0 2px}
+
+/* ── HISTORY ── */
+.history-list{display:flex;flex-direction:column;gap:6px}
+.history-item{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px;font-size:.73rem;line-height:1.4}
+
+/* ── MODALS ── */
+.modal-backdrop{position:fixed;inset:0;background:rgba(4,8,14,.72);display:none;align-items:center;justify-content:center;padding:16px;z-index:30}
+.modal-backdrop.show{display:flex}
+.modal{width:min(840px,96vw);max-height:90vh;background:var(--bg2);border:1px solid var(--line2);border-radius:12px;overflow:auto}
+.modal-head{padding:10px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.modal-body{padding:14px;display:flex;flex-direction:column;gap:10px}
+
+/* ── TOAST ── */
+.toast{position:fixed;right:14px;bottom:14px;background:var(--bg3);border:1px solid var(--line2);padding:8px 12px;border-radius:8px;font-size:.8rem;opacity:0;transform:translateY(8px);transition:.2s;pointer-events:none;z-index:50}
+.toast.show{opacity:1;transform:translateY(0)}
+
+/* ── BROWSER WARNING ── */
+.browser-warn{
+  background:rgba(224,79,84,.12);border-bottom:1px solid rgba(224,79,84,.35);
+  color:#f8b0b2;font-size:.78rem;padding:7px 14px;
+  display:none;align-items:center;gap:8px;flex-shrink:0;
+}
+.browser-warn.show{display:flex}
+.browser-warn strong{color:var(--red)}
+
+/* ── TEMPLATE MODAL ── */
+.template-item{border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer;transition:all .15s}
+.template-item:hover{border-color:var(--line2);background:var(--bg3)}
+.template-item.active{border-color:var(--accent2);background:var(--accentSoft)}
+.model-item{border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:all .15s}
+.model-item:hover{border-color:var(--line2)}.model-item.active{border-color:var(--accent2)}
+.mini-badge{font-size:.6rem;padding:1px 6px;border-radius:999px;background:var(--accentSoft);color:var(--accent);border:1px solid rgba(240,160,32,.3)}
+.mini-badge.code{background:rgba(50,140,240,.1);color:#6ab4ff;border-color:rgba(50,140,240,.3)}
+.mini-badge.light{background:rgba(46,196,106,.1);color:var(--green);border-color:rgba(46,196,106,.3)}
+
+/* progress */
+#progressLine{font-size:.72rem;color:var(--ink3);min-height:16px}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ══ RAIL ══ -->
+  <nav class="rail">
+    <div class="rail-brand">TQ</div>
+    <button class="rail-btn" id="railDossier" data-tip="Dossier" onclick="toggleDrawer('dossier')">📁</button>
+    <button class="rail-btn" id="railPieces" data-tip="Pièces" onclick="toggleDrawer('pieces')">📄</button>
+    <button class="rail-btn" id="railModele" data-tip="Modèle analyse" onclick="toggleDrawer('modele')">🧩</button>
+    <button class="rail-btn" id="railHistorique" data-tip="Historique" onclick="toggleDrawer('historique')">🕒</button>
+    <div class="rail-sep"></div>
+    <button class="rail-btn" data-tip="Connexion IA" id="openAiSettingsBtn">⚡</button>
+    <button class="rail-btn" data-tip="Exporter MD" id="exportMdBtn">↓MD</button>
+    <button class="rail-btn" data-tip="Exporter TXT" id="exportTxtBtn">↓TXT</button>
+    <div class="rail-spacer"></div>
+    <div class="rail-status" id="statusDot"></div>
+    <datalist id="modelsDatalist"></datalist>
+  </nav>
+
+  <!-- ══ DRAWER ══ -->
+  <aside class="drawer" id="mainDrawer">
+    <div class="drawer-inner">
+      <div class="drawer-head">
+        <span id="drawerTitle">Dossier</span>
+        <button class="drawer-close" onclick="closeDrawer()">✕</button>
+      </div>
+      <div class="drawer-body" id="drawerBody">
+        <!-- contenu injecté par JS -->
+      </div>
+    </div>
+  </aside>
+
+  <!-- ══ MAIN ══ -->
+  <main class="main">
+
+    <!-- topbar compacte -->
+    <header class="topbar">
+      <div class="topbar-case">
+        <span class="topbar-title" id="topbarTitle">Sans titre</span>
+        <span class="topbar-type" id="topbarType"></span>
+        <div class="topbar-tags" id="topbarTags"></div>
+      </div>
+      <div class="topbar-actions">
+        <span id="statusLabel" style="font-size:.7rem;color:var(--ink3);font-family:var(--mono)">—</span>
+        <button class="btn btn-soft" style="font-size:.75rem;padding:5px 9px" id="openConfigBtn">Modèles IA</button>
+      </div>
+    </header>
+
+
+    <nav class="modebar" id="modeBar"></nav>
+
+    <div class="state-strip">
+      <span class="state-pill on" id="activeModelPill">IA: —</span>
+      <span class="state-pill on" id="activeTemplatePill">Analyse: —</span>
+      <span class="state-pill" id="activeIntentPill">Intention: —</span>
+      <span class="state-pill" id="activeChunksPill">Extraits: 0</span>
+      <span class="state-pill" id="activeSourcesPill">Pièces utilisées: 0</span>
+    </div>
+
+    <div class="chat" id="chatArea">
+      <div class="empty" id="emptyState">
+        <h2>Assistant enquête prêt</h2>
+        <p>Travaillez à partir du dossier actif, des pièces importées et du modèle d'analyse sélectionné.</p>
+        <div class="quick">
+          <button data-quick="synthese"><strong>Synthèse dossier</strong><small>Vue opérationnelle.</small></button>
+          <button data-quick="contradictions"><strong>Contradictions</strong><small>Incohérences entre pièces.</small></button>
+          <button data-quick="audition"><strong>Préparer audition</strong><small>Questions prioritaires.</small></button>
+          <button data-quick="chronologie"><strong>Chronologie</strong><small>Ligne de temps consolidée.</small></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="inputbar">
+      <div class="quick-actions" id="quickActions"></div>
+      <div class="inputrow">
+        <textarea class="chatInput" id="userInput" rows="2" placeholder="Demande enquêteur…"></textarea>
+        <button class="btn btn-primary" id="sendBtn" style="align-self:flex-end;padding:9px 14px">Envoyer</button>
+      </div>
+      <div class="hintline">
+        <span id="progressLine"></span>
+        <span>Ctrl+Entrée · Contexte : <strong id="ctxCount">0</strong> échange(s)</span>
+      </div>
+    </div>
+  </main>
+
+  <!-- hidden inputs for sidebar state (keep IDs intact for JS) -->
+  <div style="display:none">
+    <input id="caseTitle" type="text" />
+    <select id="caseType"><option value="">—</option><option value="homicide">Homicide / Tentative</option><option value="viol">Viol / Agression sexuelle</option><option value="violences">Violences physiques</option><option value="trafic">Trafic de stupéfiants</option><option value="escroquerie">Escroquerie / Fraude</option><option value="terrorisme">Terrorisme / Radicalisation</option><option value="mineur">Mineur</option><option value="autre">Autre</option></select>
+    <input id="caseTags" type="text" />
+    <textarea id="dossierSummary"></textarea>
+    <button id="updateSummaryBtn"></button>
+    <span id="summaryState"></span>
+    <label id="dropZone"><input type="file" id="docInput" accept=".txt,.md,.pdf" multiple /></label>
+    <button id="compareSelectedBtn"></button>
+    <span id="selectionInfo"></span>
+    <div id="caseFilesList"></div>
+    <select id="selectedTemplate"></select>
+    <div id="templatePreview"></div>
+    <div id="historyList"></div>
+    <button id="clearSessionBtn"></button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<div class="modal-backdrop" id="aiModal"><div class="modal"><div class="modal-head"><strong>Connexion Ollama</strong><button class="btn btn-soft" id="closeAiModalBtn">Fermer</button></div><div class="modal-body"><div class="field"><label for="ollamaUrl">URL Ollama</label><input id="ollamaUrl" type="text" value="http://localhost:8765" placeholder="http://localhost:8765" /></div><div class="field"><label for="ollamaModel">Modèle IA</label><input id="ollamaModel" type="text" list="modelsDatalist" placeholder="qwen2.5:14b" /></div><div class="field"><label for="analysisProfile">Profil d'inférence</label><select id="analysisProfile"><option value="precise">Précise</option><option value="balanced" selected>Équilibrée</option><option value="deep">Approfondie</option></select></div><div class="row wrap"><button class="btn btn-soft" id="testBtn">Tester</button><button class="btn btn-soft" id="refreshModelsBtn">Détecter modèles</button><button class="btn btn-soft" id="bestModelBtn">Meilleur choix</button></div><div class="file-list" id="modelsPanel"></div><div class="summary" style="margin-top:8px;padding:7px 9px;background:rgba(94,168,255,.07);border:1px solid rgba(94,168,255,.15);border-radius:8px;color:#6ab4ff;font-size:.72rem">ℹ️ Via le lanceur : URL = <strong>http://localhost:8765</strong> (proxy intégré). Les appels /api/* sont relayés vers Ollama par le serveur local.</div></div></div></div>
+<div class="modal-backdrop" id="cfgModal"><div class="modal"><div class="modal-head"><strong>Gestion des modèles d'analyse</strong><div class="row wrap"><button class="btn btn-soft" id="newTemplateBtn">Nouveau</button><button class="btn btn-soft" id="dupTemplateBtn">Dupliquer</button><button class="btn btn-soft" id="editTemplateBtn">Modifier</button><button class="btn btn-soft" id="delTemplateBtn">Supprimer</button><button class="btn btn-soft" id="closeConfigBtn">Fermer</button></div></div><div class="modal-body"><div id="templateList" class="file-list"></div><div id="cfgTabs" class="summary" style="margin-top:12px"></div><div id="cfgPanels"></div></div></div></div>
+<script>
+
+const STORAGE_KEY = 'tactiq_v2_state';
+const MAX_CTX_PAIRS = 4;
+const MAX_SESSION_ITEMS = 15;
+
+const FILE_TYPES = ['audition','pv','rapport','synthese','note','annexe','contexte','autre'];
+const ANALYSIS_PROFILES = {
+  precise: { temperature:0.15, maxChunks:4, guidance:'Réponse concise et factuelle.' },
+  balanced: { temperature:0.25, maxChunks:6, guidance:'Réponse équilibrée et exploitable.' },
+  deep: { temperature:0.30, maxChunks:8, guidance:'Réponse plus développée avec vigilance.' }
+};
+
+const SYSTEM_PROMPT = `Tu es un assistant d'enquête OPJ. Tu travailles uniquement à partir du contexte fourni. Tu distingues toujours explicitement : faits issus des pièces, déductions, hypothèses, suggestions d'action. Tu ne dois pas inventer d'éléments absents des pièces. Tu signales toute incertitude.`;
+
+const DEFAULT_TEMPLATES = [
+  mkTpl('synthese-def','Synthèse dossier','synthese','Synthèse opérationnelle du dossier.','Tu produis une synthèse prudente et structurée.',`## Faits tirés des pièces\n## Analyse\n## Hypothèses / interprétations\n## Points de vigilance\n## Questions ou actions suggérées`,['synthese','rapport','pv'],'balanced',true),
+  mkTpl('contradictions-def','Analyse de contradictions','contradictions','Repérer contradictions internes et croisées.','Tu compares les pièces pour identifier contradictions et lacunes.',`## Faits comparés\n## Contradictions internes\n## Contradictions entre pièces\n## Points à vérifier\n## Questions utiles`,['audition','pv','rapport'],'precise',true),
+  mkTpl('audition-def','Préparation d\'audition','audition','Préparer une audition stratégique.','Tu construis un plan d\'audition précis et prudent.',`## Objectif\n## Points à éclaircir\n## Questions prioritaires\n## Confrontations possibles\n## Risques à éviter`,['audition','pv','note'],'balanced',true),
+  mkTpl('declaration-def','Analyse de déclaration','declaration','Analyser une déclaration cible.','Tu analyses fiabilité et cohérence d\'une déclaration.',`## Faits déclarés\n## Cohérences\n## Incohérences\n## Hypothèses explicatives\n## Vérifications recommandées`,['audition','pv'],'precise',true),
+  mkTpl('chronologie-def','Chronologie consolidée','chronologie','Consolider une ligne de temps.','Tu ordonnes les faits avec prudence.',`## Chronologie\n## Zones floues\n## Ruptures ou incohérences\n## Vérifications utiles`,['pv','rapport','annexe'],'balanced',true),
+  mkTpl('axes-def','Axes d\'enquête','axes','Proposer des axes de travail.','Tu proposes des axes hiérarchisés et argumentés.',`## Constats\n## Hypothèses de travail\n## Axes proposés\n## Actes ou vérifications utiles\n## Priorisation`,['rapport','synthese','note'],'deep',true),
+  mkTpl('questions-def','Questions complémentaires','questions','Générer des questions complémentaires.','Tu identifies les questions clés restant ouvertes.',`## Questions critiques\n## Pourquoi elles comptent\n## Pièces à exploiter\n## Actions immédiates`,['audition','pv','rapport'],'balanced',true),
+  mkTpl('coherence-def','Vérification de cohérence','coherence','Contrôle de cohérence global.','Tu vérifies la cohérence logique et procédurale.',`## Faits stables\n## Tensions de cohérence\n## Inconnues majeures\n## Contrôles recommandés`,['pv','synthese','rapport'],'precise',true),
+  mkTpl('comparaison-def','Analyse comparative de pièces','comparaison','Comparer plusieurs pièces explicitement.','Tu compares les pièces sélectionnées.',`## Pièces comparées\n## Convergences\n## Divergences\n## Contradictions\n## Lacunes\n## Éléments à vérifier`,['audition','pv','rapport','annexe'],'balanced',true),
+  mkTpl('confrontation-def','Préparation de confrontation','confrontation','Préparer une confrontation entre versions.','Tu construis une stratégie de confrontation utile.',`## Versions en présence\n## Points de friction\n## Questions de confrontation\n## Pièges à éviter\n## Objectifs de clarification`,['audition','pv'],'deep',true)
+];
+
+const QUICK_ACTIONS = [
+  {label:'Synthèse dossier', intent:'synthese', text:'Réalise une synthèse dossier opérationnelle.'},
+  {label:'Contradictions', intent:'contradictions', text:'Analyse les contradictions entre les pièces utiles.'},
+  {label:'Préparer audition', intent:'audition', text:'Prépare une audition : objectifs, questions prioritaires, risques.'},
+  {label:'Analyser déclaration', intent:'declaration', text:'Analyse la déclaration et sa cohérence.'},
+  {label:'Faire chronologie', intent:'chronologie', text:'Construit une chronologie consolidée à partir des pièces.'},
+  {label:'Axes d\'enquête', intent:'axes', text:'Propose des axes d\'enquête priorisés.'},
+  {label:'Questions complémentaires', intent:'questions', text:'Liste les questions complémentaires à traiter.'},
+  {label:'Comparer pièces', intent:'comparaison', text:'Compare les pièces sélectionnées : convergences, divergences, lacunes.'}
+];
+
+const INTENT_KEYWORDS = {
+  synthese:['synthese','résumé','resume','bilan'], contradictions:['contradiction','incoherence','divergence'], audition:['audition','interroger','questionner'], declaration:['declaration','déclaration','propos'], chronologie:['chronologie','timeline','quand','avant','apres'], axes:['axe','piste','hypothese','hypothèse'], questions:['question','complémentaire','demander'], coherence:['coherence','cohérence','logique'], comparaison:['comparer','comparaison','versus'], confrontation:['confrontation','confronter']
+};
+
+const dom = mapDom();
+const state = {
+  models: [],
+  currentCase: { title:'', type:'', summary:'', tags:[] },
+  caseFiles: [],
+  selectedFileIds: [],
+  selectedTemplateId: DEFAULT_TEMPLATES[0].id,
+  promptTemplates: [...DEFAULT_TEMPLATES],
+  conversationHistory: [],
+  sessionHistory: [],
+  selectedChunks: [],
+  selectedSources: [],
+  currentMode: 'auto',
+  lastIntent: 'libre',
+  isLoading: false,
+  userSystemPrompt: SYSTEM_PROMPT
+};
+
+function mapDom(){
+  const ids = ['statusDot','statusLabel','ollamaUrl','ollamaModel','analysisProfile','testBtn','refreshModelsBtn','bestModelBtn','modelsPanel','modelsDatalist','caseTitle','caseType','caseTags','dossierSummary','updateSummaryBtn','summaryState','dropZone','docInput','caseFilesList','selectionInfo','compareSelectedBtn','selectedTemplate','templatePreview','templateList','newTemplateBtn','dupTemplateBtn','editTemplateBtn','delTemplateBtn','historyList','clearSessionBtn','modeBar','activeModelPill','activeTemplatePill','activeIntentPill','activeChunksPill','activeSourcesPill','chatArea','emptyState','quickActions','userInput','sendBtn','progressLine','ctxCount','toast','exportMdBtn','exportTxtBtn','openConfigBtn','cfgModal','closeConfigBtn','cfgTabs','cfgPanels'];
+  const o = {}; ids.forEach(id=>o[id]=document.getElementById(id)); return o;
+}
+
+function mkTpl(id,name,category,description,systemPrompt,outputFormat,preferredFileTypes,temperatureProfile,isDefault){
+  return {id,name,category,description,systemPrompt,outputFormat,preferredFileTypes,temperatureProfile,isDefault};
+}
+function uid(prefix='id'){ return prefix + '_' + Math.random().toString(36).slice(2,9); }
+function nowIso(){ return new Date().toISOString(); }
+function escapeHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function init(){
+  restore();
+  bind();
+  renderModeBar();
+  renderQuickActions();
+  renderModels();
+  renderCase();
+  renderCaseFiles();
+  renderTemplates();
+  renderHistory();
+  renderStateStrip();
+  renderSummaryState();
+  updateTopbar();
+  updateCtx();
+  autoResize(dom.userInput);
+  setStatus('ok','PRÊT');
+  detectBrowser();
+}
+
+function detectBrowser(){
+  const isChrome = /Chrome/.test(navigator.userAgent) && !/Chromium|Firefox|Edg/.test(navigator.userAgent);
+  const isFileProtocol = location.protocol === 'file:';
+  if(isChrome && isFileProtocol){
+    document.getElementById('browserWarn')?.classList.add('show');
+  }
+}
+
+function bind(){
+  dom.testBtn.onclick = testConnection;
+  dom.refreshModelsBtn.onclick = refreshModels;
+  dom.bestModelBtn.onclick = chooseBestModel;
+  dom.sendBtn.onclick = sendMessage;
+  dom.userInput.addEventListener('keydown', e=>{ if(e.key==='Enter' && (e.ctrlKey||e.metaKey)){ e.preventDefault(); sendMessage(); }});
+  dom.userInput.addEventListener('input', ()=>autoResize(dom.userInput));
+  dom.exportMdBtn.onclick = ()=>exportConversation('md');
+  dom.exportTxtBtn.onclick = ()=>exportConversation('txt');
+  dom.clearSessionBtn.onclick = clearSession;
+  dom.updateSummaryBtn.onclick = updateSummaryFromLastAnswer;
+  dom.openConfigBtn.onclick = ()=>openTemplateEditor(getSelectedTemplate());
+  dom.closeConfigBtn.onclick = ()=>dom.cfgModal.classList.remove('show');
+  document.getElementById('openAiSettingsBtn')?.addEventListener('click', ()=>document.getElementById('aiModal')?.classList.add('show'));
+  document.getElementById('closeAiModalBtn')?.addEventListener('click', ()=>document.getElementById('aiModal')?.classList.remove('show'));
+
+  ['ollamaUrl','ollamaModel','analysisProfile'].forEach(id=>dom[id]?.addEventListener('input', syncCaseAndPersist));
+  // hidden sidebar inputs still sync
+  ['caseTitle','caseType','caseTags','dossierSummary'].forEach(id=>dom[id]?.addEventListener('input', ()=>{ syncCaseAndPersist(); updateTopbar(); }));
+  dom.selectedTemplate.onchange = ()=>{ state.selectedTemplateId = dom.selectedTemplate.value; renderTemplates(); renderStateStrip(); persist(); };
+  dom.newTemplateBtn.onclick = ()=>openTemplateEditor();
+  dom.dupTemplateBtn.onclick = ()=>duplicateTemplate(getSelectedTemplate());
+  dom.editTemplateBtn.onclick = ()=>openTemplateEditor(getSelectedTemplate());
+  dom.delTemplateBtn.onclick = ()=>deleteTemplate(getSelectedTemplate());
+
+  dom.docInput?.addEventListener('change', e=>handleFiles([...e.target.files]));
+  if(dom.dropZone){
+    ['dragenter','dragover'].forEach(evt=>dom.dropZone.addEventListener(evt,e=>{e.preventDefault(); dom.dropZone.classList.add('drag');}));
+    ['dragleave','drop'].forEach(evt=>dom.dropZone.addEventListener(evt,e=>{e.preventDefault(); dom.dropZone.classList.remove('drag');}));
+    dom.dropZone.addEventListener('drop', e=>handleFiles([...e.dataTransfer.files]));
+  }
+  dom.compareSelectedBtn.onclick = triggerCompareSelected;
+
+  document.querySelectorAll('[data-quick]').forEach(btn=>btn.onclick=()=>applyQuickAction(btn.dataset.quick));
+}
+
+function syncCaseAndPersist(){
+  state.currentCase.title = dom.caseTitle.value.trim();
+  state.currentCase.type = dom.caseType.value;
+  state.currentCase.summary = dom.dossierSummary.value.trim();
+  state.currentCase.tags = parseTags(dom.caseTags.value);
+  renderSummaryState();
+  renderStateStrip();
+  persist();
+}
+
+function parseTags(text){ return String(text||'').split(',').map(x=>x.trim()).filter(Boolean).slice(0,12); }
+
+async function handleFiles(files){
+  for(const file of files){
+    try{
+      const loaded = await readFileToCase(file);
+      if(loaded) state.caseFiles.push(loaded);
+    }catch(e){ toast(`Lecture impossible: ${file.name}`); }
+  }
+  dom.docInput.value='';
+  renderCaseFiles();
+  persist();
+}
+
+async function readFileToCase(file){
+  const name = file.name || 'piece';
+  const ext = name.split('.').pop().toLowerCase();
+  let text = '';
+  if(ext==='txt' || ext==='md') text = await file.text();
+  else if(ext==='pdf'){
+    const buf = await file.arrayBuffer();
+    const latin = new TextDecoder('latin1').decode(new Uint8Array(buf));
+    text = (latin.match(/[\x20-\x7EÀ-ÿ\n\r\t]{6,}/g) || []).join(' ').replace(/\s+/g,' ').trim();
+    if(text.length < 80) text = 'Extraction PDF locale limitée: document potentiellement scanné ou protégé.';
+  } else { toast(`Format ignoré: ${name}`); return null; }
+  const compact = normalizeCompact(text, 45000);
+  if(!compact) return null;
+  return {
+    id: uid('file'), name, type:'autre', date:'', text:compact, summary:'', tags:[],
+    chunks: buildCaseChunks(compact), loadedAt: nowIso(), size: file.size || compact.length
+  };
+}
+
+function buildCaseChunks(text){
+  const cleaned = normalizeCompact(text, 45000);
+  const paras = cleaned.split(/\n{2,}|(?<=[.!?])\s{2,}/).map(p=>p.trim()).filter(p=>p && !/^[\W_\d\s]{1,}$/i.test(p));
+  const out = []; let current = '';
+  for(const p of paras){
+    if((current + ' ' + p).trim().length <= 1050) current = (current ? current + '\n\n' : '') + p;
+    else {
+      if(current.length >= 420) out.push(current);
+      current = p;
+    }
+  }
+  if(current.length >= 320) out.push(current);
+  return out.map((chunkText,i)=>({ id: uid('chunk'+(i+1)), text:chunkText.slice(0,1200), length:chunkText.length }));
+}
+
+function extractQueryKeywords(text){
+  const stop = new Set(['avec','sans','dans','pour','de','des','du','les','une','que','qui','quoi','dont','cela','cette','entre','plusieurs','faire','faut','peut','etre','être','mais','donc','sur','par','aux','est','sont']);
+  const arr = String(text||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').match(/[a-z0-9]{4,}/g) || [];
+  return [...new Set(arr)].filter(w=>!stop.has(w)).slice(0,22);
+}
+
+function scoreChunkAgainstQuery(chunkText, keywords, fileMeta, selectedTemplate){
+  const t = chunkText.toLowerCase();
+  let score = 0; let distinct = 0;
+  keywords.forEach(k=>{ const c = (t.match(new RegExp(k,'g'))||[]).length; if(c){ score += c * 2; distinct += 1; }});
+  if(distinct >= 2) score += 4;
+  if(distinct >= 4) score += 3;
+  if(chunkText.length < 360) score -= 2;
+  if(/^[\W_\d\s]+$/.test(chunkText)) score -= 4;
+  if(selectedTemplate?.preferredFileTypes?.includes(fileMeta.type)) score += 5;
+  if(fileMeta.summary && keywords.some(k=>fileMeta.summary.toLowerCase().includes(k))) score += 2;
+  return score;
+}
+
+function getRelevantCaseChunks(query, caseFiles, options={}){
+  const maxChunks = options.maxChunks || 5;
+  const template = options.template;
+  const selectedIds = options.selectedFileIds || [];
+  const targetFiles = selectedIds.length ? caseFiles.filter(f=>selectedIds.includes(f.id)) : caseFiles;
+  const keywords = extractQueryKeywords(query);
+  const scored = [];
+  targetFiles.forEach(file=>{
+    file.chunks.forEach(chunk=>{
+      const score = scoreChunkAgainstQuery(chunk.text, keywords, file, template);
+      if(score > 0) scored.push({...chunk, score, fileId:file.id, fileName:file.name, fileType:file.type});
+    });
+  });
+  scored.sort((a,b)=>b.score-a.score);
+  const top = scored.slice(0, maxChunks);
+  const sourceMap = new Map();
+  top.forEach(c=>{ if(!sourceMap.has(c.fileId)) sourceMap.set(c.fileId, {id:c.fileId,name:c.fileName,type:c.fileType}); });
+  return { chunks: top, sources:[...sourceMap.values()] };
+}
+
+function detectAssistantIntent(userText, selectedTemplate, caseFiles){
+  if(selectedTemplate && !selectedTemplate.isDefault) return selectedTemplate.category || 'libre';
+  const src = String(userText||'').toLowerCase();
+  const scores = {synthese:1, contradictions:0, audition:0, declaration:0, chronologie:0, axes:0, questions:0, coherence:0, comparaison:0, confrontation:0, libre:1};
+  Object.entries(INTENT_KEYWORDS).forEach(([intent,keys])=>keys.forEach(k=>{ if(src.includes(k)) scores[intent]=(scores[intent]||0)+2; }));
+  if(caseFiles.length > 1 && /(comparer|entre pieces|entre pièces)/.test(src)) scores.comparaison += 3;
+  const top = Object.entries(scores).sort((a,b)=>b[1]-a[1])[0];
+  return top && top[1] > 1 ? top[0] : 'libre';
+}
+
+function getTemplateByIntent(intent){
+  return state.promptTemplates.find(t=>t.category===intent) || state.promptTemplates.find(t=>t.category==='synthese') || state.promptTemplates[0];
+}
+function getSelectedTemplate(){
+  return state.promptTemplates.find(t=>t.id===state.selectedTemplateId) || state.promptTemplates[0];
+}
+
+function buildPromptHierarchy(userText, resolvedTemplate, detectedIntent){
+  const profile = ANALYSIS_PROFILES[dom.analysisProfile.value] || ANALYSIS_PROFILES.balanced;
+  const filesList = state.caseFiles.slice(0,24).map(f=>`- ${f.name} (${f.type}${f.date ? ', ' + f.date : ''}, ${f.chunks.length} chunks)`).join('\n');
+  const relevant = getRelevantCaseChunks(`${userText}\n${state.currentCase.summary}\n${resolvedTemplate.description}`, state.caseFiles, { maxChunks: profile.maxChunks, template:resolvedTemplate, selectedFileIds: state.selectedFileIds });
+  state.selectedChunks = relevant.chunks;
+  state.selectedSources = relevant.sources;
+
+  const sections = [];
+  sections.push(`[SYSTÈME MÉTIER]\n${resolvedTemplate.systemPrompt}\n${profile.guidance}`);
+  sections.push(`[MISSION UTILISATEUR]\n${normalizeCompact(userText, 1200)}`);
+  sections.push(`[MODÈLE D'ANALYSE ACTIF]\nNom: ${resolvedTemplate.name}\nBut: ${resolvedTemplate.description}\nFormat attendu:\n${resolvedTemplate.outputFormat}`);
+  sections.push(`[INTENTION DÉTECTÉE]\n${detectedIntent}`);
+
+  const caseLines = [];
+  if(state.currentCase.title) caseLines.push(`- titre: ${state.currentCase.title}`);
+  if(state.currentCase.type) caseLines.push(`- type: ${state.currentCase.type}`);
+  if(state.currentCase.tags.length) caseLines.push(`- tags: ${state.currentCase.tags.join(', ')}`);
+  if(state.currentCase.summary) caseLines.push(`- résumé dossier: ${state.currentCase.summary}`);
+  if(caseLines.length) sections.push(`[CONTEXTE DOSSIER]\n${caseLines.join('\n')}`);
+
+  if(filesList) sections.push(`[PIÈCES DISPONIBLES]\n${filesList}`);
+  if(relevant.chunks.length){
+    sections.push(`[EXTRAITS PERTINENTS]\n${relevant.chunks.map((c,i)=>`- [${i+1}] (${c.fileName} | ${c.fileType} | score ${c.score}) ${c.text}`).join('\n\n')}`);
+  }
+  const recent = state.conversationHistory.slice(-Math.min(MAX_CTX_PAIRS*2, 4)).map(m=>`${m.role==='user'?'Utilisateur':'Assistant'}: ${normalizeCompact(m.content, 380)}`).join('\n');
+  if(recent) sections.push(`[HISTORIQUE RÉCENT]\n${recent}`);
+
+  sections.push(`[CONSIGNES FINALES]\n- Distinguer faits / hypothèses / suggestions / points à vérifier.\n- Ne pas inventer de contenu absent des pièces.\n- Signaler les incertitudes.\n- Réponse structurée, exploitable et prudente.`);
+  updateSelectionInfo();
+  renderStateStrip();
+  return sections.filter(Boolean).join('\n\n');
+}
+
+function updateSelectionInfo(){
+  if(!state.selectedChunks.length) dom.selectionInfo.textContent = state.selectedFileIds.length ? 'Aucun extrait utile dans la sélection.' : 'Aucun extrait sélectionné.';
+  else dom.selectionInfo.textContent = `${state.selectedChunks.length} extraits sélectionnés · Pièces utilisées : ${state.selectedSources.map(s=>s.name).join(', ')}`;
+}
+
+function getChatOptions(template){
+  const p = ANALYSIS_PROFILES[dom.analysisProfile.value] || ANALYSIS_PROFILES.balanced;
+  const fallback = ANALYSIS_PROFILES[template.temperatureProfile] || p;
+  return { temperature:fallback.temperature, num_ctx:12288 };
+}
+
+async function sendMessage(){
+  const text = dom.userInput.value.trim(); if(!text || state.isLoading) return;
+  const baseUrl = dom.ollamaUrl.value.trim().replace(/\/$/,'');
+  const model = dom.ollamaModel.value.trim();
+  if(!baseUrl || !model){ toast('URL et modèle requis.'); return; }
+
+  const chosen = getSelectedTemplate();
+  const detectedIntent = state.currentMode==='auto' ? detectAssistantIntent(text, chosen, state.caseFiles) : state.currentMode;
+  const resolvedTemplate = state.currentMode==='auto' ? getTemplateByIntent(detectedIntent) : (chosen || getTemplateByIntent(detectedIntent));
+  state.lastIntent = detectedIntent;
+
+  appendMessage('user', text, `${resolvedTemplate.name} · intent ${detectedIntent}`);
+  dom.userInput.value=''; autoResize(dom.userInput); hideEmpty();
+
+  setProgress('Préparation du contexte…');
+  const fullPrompt = buildPromptHierarchy(text, resolvedTemplate, detectedIntent);
+  state.conversationHistory.push({role:'user', content:fullPrompt});
+  updateCtx(); persist();
+
+  const placeholder = appendMessage('assistant', '<span class="spinner"></span>', 'OPJ IA', true);
+  state.isLoading = true; dom.sendBtn.disabled = true; setStatus('load','TRAITEMENT');
+
+  let reply='';
+  try{
+    setProgress('Sélection des extraits…');
+    const messages = [{role:'system', content:state.userSystemPrompt || SYSTEM_PROMPT}, ...state.conversationHistory.slice(-MAX_CTX_PAIRS*2)];
+    const res = await fetch(baseUrl + '/api/chat', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ model, messages, stream:true, options:getChatOptions(resolvedTemplate) })
+    });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    setProgress('Génération IA…');
+    const reader = res.body.getReader(); const decoder = new TextDecoder();
+    while(true){
+      const {done,value} = await reader.read(); if(done) break;
+      const chunk = decoder.decode(value, {stream:true});
+      for(const line of chunk.split('\n')){
+        const t = line.trim(); if(!t) continue;
+        try{ const obj = JSON.parse(t); const delta = obj.message?.content || ''; if(delta){ reply += delta; placeholder.querySelector('.bubble').innerHTML = renderMd(reply); dom.chatArea.scrollTop = dom.chatArea.scrollHeight; } }catch(e){}
+      }
+    }
+    if(!reply.trim()) throw new Error('Réponse vide du modèle');
+    state.conversationHistory.push({role:'assistant', content:reply});
+    state.sessionHistory.unshift({ time:nowIso(), prompt:text.slice(0,120), template:resolvedTemplate.name, intent:detectedIntent, sources:state.selectedSources.map(s=>s.name), reply });
+    state.sessionHistory = state.sessionHistory.slice(0,MAX_SESSION_ITEMS);
+    renderHistory(); renderStateStrip(); renderSummaryState();
+    setStatus('ok','CONNECTÉ');
+    persist();
+  }catch(err){
+    const isNetErr = err instanceof TypeError && /fetch|network|Failed/i.test(err.message);
+    const isChromeFile = /Chrome/.test(navigator.userAgent) && !/Firefox/.test(navigator.userAgent) && location.protocol === 'file:';
+    let msg = escapeHtml(err.message || 'Erreur');
+    if(isNetErr && isChromeFile){
+      msg = 'Chrome bloque les requêtes vers localhost depuis file://. Ouvrez ce fichier avec <strong>Firefox</strong>.';
+    } else if(isNetErr){
+      msg = `Impossible de joindre Ollama (${escapeHtml(baseUrl)}). Vérifiez que le serveur est actif.`;
+    }
+    placeholder.querySelector('.bubble').innerHTML = `<span style="color:var(--red)">⚠️ ${msg}</span>`;
+    setStatus('err','ERREUR');
+  }finally{
+    state.isLoading = false; dom.sendBtn.disabled = false; setProgress('');
+  }
+}
+
+function appendMessage(role, htmlOrText, meta, rawHtml=false){
+  const wrap = document.createElement('div'); wrap.className = 'msg ' + role;
+  const hm = new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  wrap.innerHTML = `<div class="meta">${hm} · ${escapeHtml(meta||'')}</div><div class="bubble">${rawHtml ? htmlOrText : (role==='assistant' ? renderMd(htmlOrText) : escapeHtml(htmlOrText))}</div>`;
+  if(role==='assistant'){
+    const actions = document.createElement('div'); actions.className='actions';
+    const cp = document.createElement('button'); cp.className='btn-tiny'; cp.textContent='Copier'; cp.onclick=()=>copyText(stripHtml(wrap.querySelector('.bubble').innerHTML));
+    const sum = document.createElement('button'); sum.className='btn-tiny'; sum.textContent='Utiliser cette réponse comme résumé';
+    sum.onclick=()=>{ dom.dossierSummary.value = stripHtml(wrap.querySelector('.bubble').innerHTML).slice(0,5000); syncCaseAndPersist(); toast('Résumé dossier mis à jour.'); };
+    const exp = document.createElement('button'); exp.className='btn-tiny'; exp.textContent='Exporter note';
+    exp.onclick=()=>exportSingleNote(stripHtml(wrap.querySelector('.bubble').innerHTML), meta);
+    actions.append(cp,sum,exp); wrap.appendChild(actions);
+  }
+  dom.chatArea.appendChild(wrap); dom.chatArea.scrollTop = dom.chatArea.scrollHeight;
+  return wrap;
+}
+
+function renderModeBar(){
+  const modes = [{id:'auto',label:'🤖 Auto'},{id:'synthese',label:'📋 Synthèse'},{id:'contradictions',label:'⚡ Contradictions'},{id:'audition',label:'🎯 Audition'},{id:'chronologie',label:'🕒 Chronologie'},{id:'axes',label:'🧭 Axes'},{id:'comparaison',label:'🧩 Comparaison'},{id:'libre',label:'💬 Libre'}];
+  dom.modeBar.innerHTML='';
+  modes.forEach(m=>{ const b=document.createElement('button'); b.className='mode-btn'+(state.currentMode===m.id?' active':''); b.textContent=m.label; b.onclick=()=>{ state.currentMode=m.id; renderModeBar(); renderStateStrip(); persist(); }; dom.modeBar.appendChild(b); });
+}
+
+function renderQuickActions(){
+  dom.quickActions.innerHTML='';
+  const primary = QUICK_ACTIONS.slice(0,5);
+  primary.forEach(a=>{ const b=document.createElement('button'); b.className='quick-chip'; b.textContent=a.label; b.onclick=()=>{ applyQuickAction(a.intent, a.text); }; dom.quickActions.appendChild(b); });
+  const moreWrap = document.createElement('details');
+  moreWrap.className = 'quick-more';
+  moreWrap.innerHTML = '<summary>Plus</summary>';
+  const panel = document.createElement('div'); panel.className='quick-more-menu';
+  QUICK_ACTIONS.slice(5).forEach(a=>{ const b=document.createElement('button'); b.textContent=a.label; b.onclick=()=>{ moreWrap.removeAttribute('open'); applyQuickAction(a.intent, a.text); }; panel.appendChild(b); });
+  moreWrap.appendChild(panel);
+  dom.quickActions.appendChild(moreWrap);
+}
+
+function applyQuickAction(intent, text=''){
+  state.currentMode = 'auto';
+  const tpl = getTemplateByIntent(intent); if(tpl){ state.selectedTemplateId = tpl.id; dom.selectedTemplate.value = tpl.id; }
+  dom.userInput.value = text || `Mode ${intent} : traiter la demande en format métier.`;
+  autoResize(dom.userInput); dom.userInput.focus();
+  renderModeBar(); renderTemplates(); renderStateStrip(); persist(); hideEmpty();
+}
+
+function renderCase(){
+  dom.caseTitle.value = state.currentCase.title || '';
+  dom.caseType.value = state.currentCase.type || '';
+  dom.caseTags.value = (state.currentCase.tags||[]).join(', ');
+  dom.dossierSummary.value = state.currentCase.summary || '';
+}
+
+function renderCaseFiles(){
+  dom.caseFilesList.innerHTML='';
+  if(!state.caseFiles.length){ dom.caseFilesList.innerHTML = '<div class="summary" style="padding:10px">Aucune pièce importée.</div>'; updateSelectionInfo(); return; }
+  state.caseFiles.forEach(file=>{
+    const row = document.createElement('div'); row.className='file-item';
+    row.innerHTML = `
+      <div class="file-top">
+        <label class="file-check"><input type="checkbox" ${state.selectedFileIds.includes(file.id)?'checked':''} data-role="sel" /><span>${escapeHtml(file.name)}</span></label>
+        <div class="row"><button class="btn-tiny" data-role="edit">Éditer</button><button class="btn-tiny" data-role="del">Suppr.</button></div>
+      </div>
+      <div class="summary">${file.type} · ${Number(file.size||file.text.length).toLocaleString('fr-FR')} octets · ${file.chunks.length} blocs ${file.date ? '· '+file.date : ''}</div>
+      <div class="taglist">${(file.tags||[]).map(t=>`<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>
+      <details class="file-meta">
+        <summary>Détails</summary>
+        <div class="row wrap" style="margin-top:8px">
+          <select data-role="type">${FILE_TYPES.map(t=>`<option value="${t}" ${file.type===t?'selected':''}>${t}</option>`).join('')}</select>
+          <input type="text" data-role="date" value="${escapeHtml(file.date||'')}" placeholder="date" style="max-width:120px" />
+          <input type="text" data-role="tags" value="${escapeHtml((file.tags||[]).join(', '))}" placeholder="tags" style="flex:1" />
+          <button class="btn-tiny" data-role="view" type="button">Aperçu</button>
+        </div>
+      </details>`;
+    row.querySelector('[data-role="sel"]').onchange = e=>toggleFileSelection(file.id, e.target.checked);
+    row.querySelector('[data-role="type"]').onchange = e=>{ file.type=e.target.value; persist(); };
+    row.querySelector('[data-role="date"]').oninput = e=>{ file.date=e.target.value.trim(); persist(); };
+    row.querySelector('[data-role="tags"]').oninput = e=>{ file.tags=parseTags(e.target.value); persist(); };
+    row.querySelector('[data-role="view"]').onclick = ()=>toast(file.text.slice(0,180).replace(/\n/g,' ') + '…');
+    row.querySelector('[data-role="edit"]').onclick = ()=>{ const d=row.querySelector('details'); d.open=true; d.scrollIntoView({block:'nearest'}); };
+    row.querySelector('[data-role="del"]').onclick = ()=>removeCaseFile(file.id);
+    dom.caseFilesList.appendChild(row);
+  });
+  updateSelectionInfo();
+}
+
+function toggleFileSelection(fileId, checked){
+  if(checked && !state.selectedFileIds.includes(fileId)) state.selectedFileIds.push(fileId);
+  if(!checked) state.selectedFileIds = state.selectedFileIds.filter(id=>id!==fileId);
+  updateSelectionInfo(); persist(); renderStateStrip();
+}
+function removeCaseFile(fileId){
+  state.caseFiles = state.caseFiles.filter(f=>f.id!==fileId);
+  state.selectedFileIds = state.selectedFileIds.filter(id=>id!==fileId);
+  renderCaseFiles(); persist(); renderStateStrip();
+}
+function triggerCompareSelected(){
+  applyQuickAction('comparaison', 'Comparer les pièces sélectionnées et ressortir convergences, divergences, contradictions, lacunes et points à vérifier.');
+  if(!state.selectedFileIds.length){
+    const top = state.caseFiles.slice(0,3).map(f=>f.id);
+    state.selectedFileIds = top;
+    renderCaseFiles();
+  }
+}
+
+function renderTemplates(){
+  if(!state.promptTemplates.length) state.promptTemplates = [...DEFAULT_TEMPLATES];
+  if(!state.promptTemplates.some(t=>t.id===state.selectedTemplateId)) state.selectedTemplateId = state.promptTemplates[0].id;
+
+  dom.selectedTemplate.innerHTML = state.promptTemplates.map(t=>`<option value="${t.id}">${escapeHtml(t.name)} ${t.isDefault?'· défaut':''}</option>`).join('');
+  dom.selectedTemplate.value = state.selectedTemplateId;
+
+  dom.templateList.innerHTML='';
+  state.promptTemplates.forEach(t=>{
+    const row = document.createElement('div'); row.className='template-item'+(t.id===state.selectedTemplateId?' active':'');
+    row.innerHTML = `<div><strong>${escapeHtml(t.name)}</strong><div class="summary">${escapeHtml(t.description)}</div></div><div class="taglist"><span class="mini-badge">${escapeHtml(t.category)}</span>${t.isDefault?'<span class="mini-badge reco">défaut</span>':''}</div>`;
+    row.onclick=()=>{ state.selectedTemplateId=t.id; dom.selectedTemplate.value=t.id; renderTemplates(); renderStateStrip(); persist(); };
+    dom.templateList.appendChild(row);
+  });
+
+  const selected = getSelectedTemplate();
+  dom.templatePreview.textContent = `${selected.description}\nTypes privilégiés: ${(selected.preferredFileTypes||[]).join(', ') || '—'}\nProfil: ${selected.temperatureProfile}`;
+}
+
+function openTemplateEditor(template){
+  const editing = template || mkTpl(uid('tpl'),'Nouveau modèle','libre','Description courte','Prompt système métier',`## Faits tirés des pièces\n## Analyse\n## Hypothèses / interprétations\n## Points de vigilance\n## Questions ou actions suggérées`,['autre'],'balanced',false);
+  dom.cfgTabs.innerHTML = '<div class="cfg-tab active">Édition</div>';
+  dom.cfgPanels.innerHTML = '';
+  const p = document.createElement('div'); p.className='cfg-panel';
+  p.innerHTML = `
+    <div class="field"><label>Nom</label><input id="tplName" type="text" value="${escapeHtml(editing.name)}" /></div>
+    <div class="field"><label>Catégorie</label><input id="tplCat" type="text" value="${escapeHtml(editing.category)}" /></div>
+    <div class="field"><label>Description</label><textarea id="tplDesc">${escapeHtml(editing.description)}</textarea></div>
+    <div class="field"><label>Prompt système métier</label><textarea id="tplSystem" rows="5">${escapeHtml(editing.systemPrompt)}</textarea></div>
+    <div class="field"><label>Format de sortie strict</label><textarea id="tplFormat" rows="6">${escapeHtml(editing.outputFormat)}</textarea></div>
+    <div class="field"><label>Types privilégiés (virgules)</label><input id="tplTypes" type="text" value="${escapeHtml((editing.preferredFileTypes||[]).join(', '))}" /></div>
+    <div class="field"><label>Profil température</label><select id="tplTemp"><option value="precise">precise</option><option value="balanced">balanced</option><option value="deep">deep</option></select></div>
+    <div class="row wrap"><button class="btn btn-primary" id="tplSave">Enregistrer</button>${editing.isDefault?'<span class="summary">Modèle par défaut : non supprimable</span>':''}</div>`;
+  dom.cfgPanels.appendChild(p);
+  p.querySelector('#tplTemp').value = editing.temperatureProfile || 'balanced';
+  p.querySelector('#tplSave').onclick = ()=>{
+    const updated = {
+      ...editing,
+      name: p.querySelector('#tplName').value.trim() || editing.name,
+      category: p.querySelector('#tplCat').value.trim() || 'libre',
+      description: p.querySelector('#tplDesc').value.trim(),
+      systemPrompt: p.querySelector('#tplSystem').value.trim(),
+      outputFormat: p.querySelector('#tplFormat').value.trim(),
+      preferredFileTypes: parseTags(p.querySelector('#tplTypes').value),
+      temperatureProfile: p.querySelector('#tplTemp').value
+    };
+    const idx = state.promptTemplates.findIndex(t=>t.id===updated.id);
+    if(idx>=0) state.promptTemplates[idx] = updated; else state.promptTemplates.push(updated);
+    state.selectedTemplateId = updated.id;
+    persist(); renderTemplates(); renderStateStrip(); dom.cfgModal.classList.remove('show'); toast('Modèle enregistré.');
+  };
+  dom.cfgModal.classList.add('show');
+}
+
+function duplicateTemplate(template){
+  if(!template) return;
+  const dup = {...template, id:uid('tpl'), name:`${template.name} (copie)`, isDefault:false};
+  state.promptTemplates.push(dup); state.selectedTemplateId = dup.id;
+  renderTemplates(); renderStateStrip(); persist(); toast('Modèle dupliqué.');
+}
+
+function deleteTemplate(template){
+  if(!template) return;
+  if(template.isDefault){ toast('Les modèles par défaut ne sont pas supprimables.'); return; }
+  state.promptTemplates = state.promptTemplates.filter(t=>t.id!==template.id);
+  state.selectedTemplateId = state.promptTemplates[0]?.id || DEFAULT_TEMPLATES[0].id;
+  renderTemplates(); renderStateStrip(); persist();
+}
+
+function renderModels(){
+  dom.modelsPanel.innerHTML=''; dom.modelsDatalist.innerHTML='';
+  state.models.forEach(name=>{
+    const opt = document.createElement('option'); opt.value = name; dom.modelsDatalist.appendChild(opt);
+    const row = document.createElement('div'); row.className='model-item'+(name===dom.ollamaModel.value.trim()?' active':'');
+    const badges = [];
+    if(/^qwen2\.5:14b$/i.test(name)) badges.push('<span class="mini-badge reco">recommandé</span>');
+    if(/qwen2\.5-coder/i.test(name)) badges.push('<span class="mini-badge code">code</span>');
+    if(/:7b/i.test(name)) badges.push('<span class="mini-badge light">léger</span>');
+    row.innerHTML = `<span>${escapeHtml(name)}</span><span class="row">${badges.join('')}<button class="btn-tiny">Choisir</button></span>`;
+    row.onclick = ()=>{ dom.ollamaModel.value = name; renderModels(); renderStateStrip(); persist(); };
+    dom.modelsPanel.appendChild(row);
+  });
+  dom.modelsPanel.classList.toggle('hidden', !state.models.length);
+}
+
+function chooseBestModel(){
+  const models = state.models.length ? state.models : [dom.ollamaModel.value.trim()].filter(Boolean);
+  if(!models.length) return toast('Aucun modèle détecté.');
+  const pick = models.find(x=>/^qwen2\.5:14b$/i.test(x))
+    || models.find(x=>/^qwen2\.5:7b$/i.test(x))
+    || models.find(x=>/^qwen2\.5-coder:7b$/i.test(x))
+    || models.find(x=>/^mistral:latest$/i.test(x))
+    || models.find(x=>/^qwen/i.test(x))
+    || models.find(x=>/^mistral/i.test(x))
+    || models[0];
+  dom.ollamaModel.value = pick; renderModels(); renderStateStrip(); persist(); toast(`Modèle choisi: ${pick}`);
+}
+
+async function testConnection(){
+  try{
+    setStatus('load','TEST…');
+    const data = await fetchJson(dom.ollamaUrl.value.trim().replace(/\/$/,'') + '/api/tags');
+    state.models = Array.isArray(data.models) ? data.models.map(m=>m.name).filter(Boolean) : [];
+    renderModels(); chooseBestModel(); setStatus('ok','CONNECTÉ'); persist();
+    toast(state.models.length ? `${state.models.length} modèle(s) détecté(s).` : 'Connexion OK.');
+  }catch(e){ setStatus('err','ERREUR'); toast('Ollama inaccessible.'); }
+}
+async function refreshModels(){ return testConnection(); }
+
+function renderHistory(){
+  dom.historyList.innerHTML='';
+  state.sessionHistory.forEach(it=>{
+    const d = document.createElement('div'); d.className='history-item';
+    d.innerHTML = `<strong>${escapeHtml(it.template)}</strong> · intent ${escapeHtml(it.intent)}<br>${escapeHtml(it.prompt)}<br><span class="summary">Pièces: ${(it.sources||[]).join(', ') || 'auto'}</span>`;
+    dom.historyList.appendChild(d);
+  });
+}
+
+function renderStateStrip(){
+  dom.activeModelPill.textContent = `Modèle Ollama: ${dom.ollamaModel.value.trim() || '—'}`;
+  dom.activeTemplatePill.textContent = `Modèle analyse: ${(getSelectedTemplate()||{}).name || '—'}`;
+  dom.activeIntentPill.textContent = `Intention: ${state.lastIntent || '—'}`;
+  dom.activeIntentPill.classList.toggle('on', !!state.lastIntent);
+  dom.activeChunksPill.textContent = `Extraits: ${state.selectedChunks.length}`;
+  dom.activeChunksPill.classList.toggle('on', !!state.selectedChunks.length);
+  dom.activeSourcesPill.textContent = `Pièces utilisées: ${state.selectedSources.length}`;
+  dom.activeSourcesPill.classList.toggle('on', !!state.selectedSources.length);
+}
+
+function updateSummaryFromLastAnswer(){
+  const last = [...state.conversationHistory].reverse().find(x=>x.role==='assistant');
+  if(!last) return toast('Aucune réponse disponible.');
+  dom.dossierSummary.value = normalizeCompact(last.content, 5000);
+  syncCaseAndPersist();
+  toast('Résumé dossier mis à jour.');
+}
+
+function clearSession(){
+  if(!confirm('Effacer la session en cours ?')) return;
+  state.conversationHistory = []; state.sessionHistory = []; state.selectedChunks=[]; state.selectedSources=[];
+  dom.chatArea.innerHTML=''; dom.chatArea.appendChild(dom.emptyState); dom.emptyState.classList.remove('hidden');
+  renderHistory(); updateCtx(); renderStateStrip(); persist();
+}
+
+function exportConversation(type){
+  if(!state.sessionHistory.length && !state.conversationHistory.length) return toast('Rien à exporter.');
+  const title = state.currentCase.title || 'Dossier sans titre';
+  const lines = [`# ${title}`,`Modèle d'analyse actif: ${(getSelectedTemplate()||{}).name || '—'}`,`Date export: ${new Date().toLocaleString('fr-FR')}`,''];
+  state.sessionHistory.forEach((h,i)=>{
+    lines.push(type==='md' ? `## ${i+1}. ${h.template} (${h.intent})` : `${i+1}. ${h.template} (${h.intent})`);
+    lines.push(`Pièces utilisées: ${(h.sources||[]).join(', ') || 'auto'}`);
+    lines.push(`Demande: ${h.prompt}`);
+    lines.push(type==='md' ? h.reply : stripHtml(h.reply));
+    lines.push('');
+  });
+  downloadText(`tactiq-${new Date().toISOString().replace(/[:.]/g,'-')}.${type}`, lines.join('\n'));
+}
+
+function exportSingleNote(text, meta){
+  const title = `${state.currentCase.title || 'dossier'} - note`;
+  const body = `# ${title}\n${meta}\n\n${text}\n`;
+  downloadText(`note-analyse-${new Date().toISOString().replace(/[:.]/g,'-')}.md`, body);
+}
+
+function downloadText(filename, content){
+  const blob = new Blob([content], {type:'text/plain;charset=utf-8'});
+  const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; a.click(); URL.revokeObjectURL(url);
+}
+
+function persist(){
+  const payload = {
+    models: state.models,
+    currentCase: state.currentCase,
+    caseFiles: state.caseFiles,
+    selectedFileIds: state.selectedFileIds,
+    promptTemplates: state.promptTemplates,
+    selectedTemplateId: state.selectedTemplateId,
+    conversationHistory: state.conversationHistory.slice(-120),
+    sessionHistory: state.sessionHistory,
+    currentMode: state.currentMode,
+    lastIntent: state.lastIntent,
+    userSystemPrompt: state.userSystemPrompt,
+    config:{ ollamaUrl: dom.ollamaUrl.value, ollamaModel: dom.ollamaModel.value, analysisProfile: dom.analysisProfile.value }
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+}
+
+function restore(){
+  dom.ollamaModel.value = 'qwen2.5:14b';
+  const raw = localStorage.getItem(STORAGE_KEY); if(!raw) return;
+  try{
+    const d = JSON.parse(raw);
+    state.models = Array.isArray(d.models) ? d.models : [];
+    state.currentCase = d.currentCase || state.currentCase;
+    state.caseFiles = Array.isArray(d.caseFiles) ? d.caseFiles : [];
+    state.selectedFileIds = Array.isArray(d.selectedFileIds) ? d.selectedFileIds : [];
+    state.promptTemplates = Array.isArray(d.promptTemplates) && d.promptTemplates.length ? d.promptTemplates : [...DEFAULT_TEMPLATES];
+    state.selectedTemplateId = d.selectedTemplateId || state.promptTemplates[0].id;
+    state.conversationHistory = Array.isArray(d.conversationHistory) ? d.conversationHistory : [];
+    state.sessionHistory = Array.isArray(d.sessionHistory) ? d.sessionHistory : [];
+    state.currentMode = d.currentMode || 'auto';
+    state.lastIntent = d.lastIntent || 'libre';
+    state.userSystemPrompt = d.userSystemPrompt || SYSTEM_PROMPT;
+    if(d.config){ dom.ollamaUrl.value = d.config.ollamaUrl || 'http://localhost:8765'; dom.ollamaModel.value = d.config.ollamaModel || 'qwen2.5:14b'; dom.analysisProfile.value = d.config.analysisProfile || 'balanced'; }
+  }catch(e){ console.warn('restore failed', e); }
+}
+
+function normalizeCompact(text, maxLen=1200){
+  return String(text || '').replace(/\r/g,'').split('\n').map(x=>x.trim()).filter(Boolean).reduce((acc,line)=>{ if(!acc.length || acc[acc.length-1]!==line) acc.push(line); return acc; },[]).join('\n').slice(0,maxLen);
+}
+function stripHtml(html){ const d=document.createElement('div'); d.innerHTML=html; return d.textContent || d.innerText || ''; }
+function hideEmpty(){ dom.emptyState.classList.add('hidden'); }
+function setProgress(text){ dom.progressLine.textContent = text || ''; }
+function setStatus(kind, text){ 
+  dom.statusDot.className='rail-status '+kind; 
+  dom.statusLabel.textContent = text; 
+}
+function renderSummaryState(){ const n = (dom.dossierSummary.value||'').trim().length; dom.summaryState.textContent = n ? `Résumé dossier actif (${n} caractères)` : 'Résumé dossier inactif'; }
+function updateCtx(){ dom.ctxCount.textContent = Math.floor(state.conversationHistory.length / 2); }
+function autoResize(el){ el.style.height='auto'; el.style.height = Math.min(el.scrollHeight,170) + 'px'; }
+function toast(msg){ dom.toast.textContent = msg; dom.toast.classList.add('show'); clearTimeout(toast._t); toast._t = setTimeout(()=>dom.toast.classList.remove('show'), 2200); }
+function copyText(text){ navigator.clipboard?.writeText(text).then(()=>toast('Copié.')).catch(()=>toast('Copie impossible.')); }
+
+async function fetchJson(url, options={}, timeoutMs=8000){
+  const ctrl = new AbortController(); const t = setTimeout(()=>ctrl.abort(), timeoutMs);
+  try{ const res = await fetch(url, {...options, signal:ctrl.signal}); const txt = await res.text(); if(!res.ok) throw new Error('HTTP '+res.status); return JSON.parse(txt || '{}'); }
+  finally{ clearTimeout(t); }
+}
+
+function renderMd(src){
+  let h = escapeHtml(String(src || '')); const blocks = [];
+  h = h.replace(/```([\s\S]*?)```/g, (_, code)=>{ const i = blocks.push(code)-1; return `\u0000CODE${i}\u0001`; });
+  h = h.replace(/^###\s+(.+)$/gm,'<h3>$1</h3>').replace(/^##\s+(.+)$/gm,'<h2>$1</h2>').replace(/^#\s+(.+)$/gm,'<h1>$1</h1>');
+  h = h.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\*(.+?)\*/g,'<em>$1</em>').replace(/`([^`]+)`/g,'<code>$1</code>');
+  h = h.replace(/(^|\n)\-\s+(.+(?:\n\-\s+.+)*)/g, (m,p1,list)=>{ const items=list.split(/\n\-\s+/).map(x=>x.replace(/^\-\s+/,'').trim()).filter(Boolean).map(x=>`<li>${x}</li>`).join(''); return `${p1}<ul>${items}</ul>`; });
+  h = h.split(/\n{2,}/).map(b=>{ b=b.trim(); if(!b) return ''; if(/^<(h\d|ul|pre|blockquote)/.test(b)) return b; return '<p>'+b.replace(/\n/g,'<br>')+'</p>'; }).join('');
+  return h.replace(/\u0000CODE(\d+)\u0001/g, (_,i)=>`<pre><code>${escapeHtml(blocks[+i])}</code></pre>`);
+}
+
+// ══ DRAWER SYSTEM ══
+let currentDrawer = null;
+
+const DRAWER_PANELS = {
+  dossier: {
+    title: 'Dossier',
+    render() {
+      return `
+        <div class="field"><label for="dc_title">Titre dossier</label><input id="dc_title" type="text" placeholder="Ex : Homicide quai sud" value="${escapeHtml(state.currentCase.title||'')}" /></div>
+        <div class="field"><label for="dc_type">Type d'affaire</label>
+          <select id="dc_type">
+            <option value="">— Sélectionner —</option>
+            ${['homicide','viol','violences','trafic','escroquerie','terrorisme','mineur','autre'].map(v=>`<option value="${v}" ${state.currentCase.type===v?'selected':''}>${{homicide:'Homicide / Tentative',viol:'Viol / Agression sexuelle',violences:'Violences physiques',trafic:'Trafic de stupéfiants',escroquerie:'Escroquerie / Fraude',terrorisme:'Terrorisme / Radicalisation',mineur:'Mineur',autre:'Autre'}[v]}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field"><label for="dc_tags">Tags</label><input id="dc_tags" type="text" placeholder="alibi, couteau, vidéo…" value="${escapeHtml((state.currentCase.tags||[]).join(', '))}" /></div>
+        <div class="field"><label for="dc_summary">Résumé dossier</label><textarea id="dc_summary" rows="5" placeholder="Mémoire centrale du dossier…">${escapeHtml(state.currentCase.summary||'')}</textarea></div>
+        <div class="row" style="flex-wrap:wrap">
+          <button class="btn btn-soft" id="dc_saveBtn" style="font-size:.78rem">Enregistrer</button>
+          <button class="btn btn-soft" id="dc_updateFromLastBtn" style="font-size:.78rem">Résumé ← dernière réponse</button>
+        </div>
+        <span class="summary" id="dc_summaryState"></span>`;
+    },
+    bind() {
+      const sync = () => {
+        dom.caseTitle.value = document.getElementById('dc_title')?.value||'';
+        dom.caseType.value = document.getElementById('dc_type')?.value||'';
+        dom.caseTags.value = document.getElementById('dc_tags')?.value||'';
+        dom.dossierSummary.value = document.getElementById('dc_summary')?.value||'';
+        syncCaseAndPersist();
+        updateTopbar();
+      };
+      ['dc_title','dc_type','dc_tags','dc_summary'].forEach(id=>document.getElementById(id)?.addEventListener('input', sync));
+      document.getElementById('dc_saveBtn')?.addEventListener('click', ()=>{ sync(); toast('Dossier enregistré.'); });
+      document.getElementById('dc_updateFromLastBtn')?.addEventListener('click', ()=>{ updateSummaryFromLastAnswer(); const ta=document.getElementById('dc_summary'); if(ta) ta.value=dom.dossierSummary.value; });
+      const st = document.getElementById('dc_summaryState');
+      if(st){ const n=(state.currentCase.summary||'').trim().length; st.textContent = n ? `Résumé actif (${n} car.)` : 'Résumé inactif'; }
+    }
+  },
+  pieces: {
+    title: 'Pièces du dossier',
+    render() {
+      return `
+        <label class="dropzone" id="dc_dropZone" style="cursor:pointer">
+          <input type="file" id="dc_docInput" accept=".txt,.md,.pdf" multiple />
+          <strong>Importer TXT / MD / PDF</strong>
+          <div class="summary">Extraction locale, multi-pièces.</div>
+        </label>
+        <div class="row" style="flex-wrap:wrap">
+          <button class="btn btn-soft" id="dc_compareBtn" style="font-size:.78rem">Comparer la sélection</button>
+          <span class="summary" id="dc_selInfo">—</span>
+        </div>
+        <div id="dc_fileList" class="file-list"></div>`;
+    },
+    bind() {
+      const di = document.getElementById('dc_docInput');
+      const dz = document.getElementById('dc_dropZone');
+      if(di) di.addEventListener('change', e=>{ handleFiles([...e.target.files]); setTimeout(()=>DRAWER_PANELS.pieces.refreshFileList(), 300); });
+      if(dz){
+        ['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('drag');}));
+        ['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('drag');}));
+        dz.addEventListener('drop', e=>{ handleFiles([...e.dataTransfer.files]); setTimeout(()=>DRAWER_PANELS.pieces.refreshFileList(), 300); });
+      }
+      document.getElementById('dc_compareBtn')?.addEventListener('click', triggerCompareSelected);
+      DRAWER_PANELS.pieces.refreshFileList();
+    },
+    refreshFileList() {
+      const fl = document.getElementById('dc_fileList');
+      const si = document.getElementById('dc_selInfo');
+      if(!fl) return;
+      fl.innerHTML='';
+      if(!state.caseFiles.length){ fl.innerHTML='<div class="summary" style="padding:6px">Aucune pièce importée.</div>'; if(si) si.textContent='—'; return; }
+      state.caseFiles.forEach(file=>{
+        const row = document.createElement('div'); row.className='file-item';
+        row.innerHTML = `
+          <div class="file-top">
+            <label class="file-check"><input type="checkbox" ${state.selectedFileIds.includes(file.id)?'checked':''} data-role="sel" /><span>${escapeHtml(file.name)}</span></label>
+            <div class="row"><button class="btn-tiny" data-role="del">Suppr.</button></div>
+          </div>
+          <div class="summary">${file.type} · ${file.chunks.length} blocs</div>
+          <div class="taglist">${(file.tags||[]).map(t=>`<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>
+          <details class="file-meta">
+            <summary>Détails</summary>
+            <div class="row" style="margin-top:6px;flex-wrap:wrap">
+              <select data-role="type" style="flex:1">${FILE_TYPES.map(t=>`<option value="${t}" ${file.type===t?'selected':''}>${t}</option>`).join('')}</select>
+              <input type="text" data-role="date" value="${escapeHtml(file.date||'')}" placeholder="date" style="max-width:100px" />
+              <input type="text" data-role="tags" value="${escapeHtml((file.tags||[]).join(', '))}" placeholder="tags" style="flex:1" />
+            </div>
+          </details>`;
+        row.querySelector('[data-role="sel"]').onchange = e=>{ toggleFileSelection(file.id, e.target.checked); if(si) si.textContent=`${state.selectedFileIds.length} sélectionné(s)`; };
+        row.querySelector('[data-role="type"]').onchange = e=>{ file.type=e.target.value; persist(); };
+        row.querySelector('[data-role="date"]').oninput = e=>{ file.date=e.target.value.trim(); persist(); };
+        row.querySelector('[data-role="tags"]').oninput = e=>{ file.tags=parseTags(e.target.value); persist(); };
+        row.querySelector('[data-role="del"]').onclick = ()=>{ removeCaseFile(file.id); DRAWER_PANELS.pieces.refreshFileList(); };
+        fl.appendChild(row);
+      });
+      if(si) si.textContent = state.selectedFileIds.length ? `${state.selectedFileIds.length} sélectionné(s)` : `${state.caseFiles.length} pièce(s)`;
+    }
+  },
+  modele: {
+    title: 'Modèle d\'analyse',
+    render() {
+      const opts = state.promptTemplates.map(t=>`<option value="${t.id}" ${t.id===state.selectedTemplateId?'selected':''}>${escapeHtml(t.name)}${t.isDefault?' · défaut':''}</option>`).join('');
+      const tpl = state.promptTemplates.find(t=>t.id===state.selectedTemplateId)||state.promptTemplates[0];
+      return `
+        <div class="field"><label>Modèle actif</label><select id="dc_tplSelect">${opts}</select></div>
+        <div class="summary" id="dc_tplDesc">${escapeHtml(tpl?.description||'—')}</div>
+        <div class="row" style="flex-wrap:wrap">
+          <button class="btn btn-soft" style="font-size:.78rem" id="dc_editTpl">Modifier</button>
+          <button class="btn btn-soft" style="font-size:.78rem" id="dc_dupTpl">Dupliquer</button>
+          <button class="btn btn-soft" style="font-size:.78rem" id="dc_delTpl">Supprimer</button>
+        </div>
+        <button class="btn btn-soft" style="font-size:.78rem" id="dc_newTpl">Nouveau modèle</button>`;
+    },
+    bind() {
+      document.getElementById('dc_tplSelect')?.addEventListener('change', e=>{
+        state.selectedTemplateId = e.target.value;
+        dom.selectedTemplate.value = e.target.value;
+        const tpl = state.promptTemplates.find(t=>t.id===e.target.value);
+        const desc = document.getElementById('dc_tplDesc');
+        if(desc && tpl) desc.textContent = tpl.description||'—';
+        renderTemplates(); renderStateStrip(); persist();
+      });
+      document.getElementById('dc_editTpl')?.addEventListener('click', ()=>{ document.getElementById('openConfigBtn').click(); });
+      document.getElementById('dc_dupTpl')?.addEventListener('click', ()=>{ duplicateTemplate(getSelectedTemplate()); toggleDrawer('modele'); });
+      document.getElementById('dc_delTpl')?.addEventListener('click', ()=>{ deleteTemplate(getSelectedTemplate()); toggleDrawer('modele'); });
+      document.getElementById('dc_newTpl')?.addEventListener('click', ()=>{ openTemplateEditor(); });
+    }
+  },
+  historique: {
+    title: 'Historique session',
+    render() {
+      if(!state.sessionHistory.length) return '<div class="summary">Aucun échange dans cette session.</div><button class="btn btn-soft" id="dc_clearBtn" style="font-size:.78rem;margin-top:8px">Nouvelle session</button>';
+      const items = state.sessionHistory.map(it=>`<div class="history-item"><strong>${escapeHtml(it.template)}</strong> · ${escapeHtml(it.intent)}<br><span style="color:var(--ink2)">${escapeHtml(it.prompt.slice(0,90))}…</span><br><span class="summary">Pièces: ${(it.sources||[]).join(', ')||'auto'}</span></div>`).join('');
+      return `<div class="history-list">${items}</div><button class="btn btn-soft" id="dc_clearBtn" style="font-size:.78rem;margin-top:8px">Nouvelle session</button>`;
+    },
+    bind() {
+      document.getElementById('dc_clearBtn')?.addEventListener('click', ()=>{ clearSession(); closeDrawer(); });
+    }
+  }
+};
+
+function toggleDrawer(panel){
+  const drawer = document.getElementById('mainDrawer');
+  if(currentDrawer === panel){ closeDrawer(); return; }
+  currentDrawer = panel;
+  const def = DRAWER_PANELS[panel];
+  document.getElementById('drawerTitle').textContent = def.title;
+  document.getElementById('drawerBody').innerHTML = def.render();
+  def.bind();
+  drawer.classList.add('open');
+  // highlight active rail btn
+  document.querySelectorAll('.rail-btn[id^="rail"]').forEach(b=>b.classList.remove('active'));
+  const btn = document.getElementById('rail'+panel.charAt(0).toUpperCase()+panel.slice(1));
+  if(btn) btn.classList.add('active');
+}
+
+function closeDrawer(){
+  document.getElementById('mainDrawer').classList.remove('open');
+  document.querySelectorAll('.rail-btn[id^="rail"]').forEach(b=>b.classList.remove('active'));
+  currentDrawer = null;
+}
+
+function updateTopbar(){
+  const title = state.currentCase.title || 'Sans titre';
+  const typeMap = {homicide:'Homicide',viol:'Viol/Agression',violences:'Violences',trafic:'Trafic',escroquerie:'Escroquerie',terrorisme:'Terrorisme',mineur:'Mineur',autre:'Autre'};
+  document.getElementById('topbarTitle').textContent = title;
+  document.getElementById('topbarType').textContent = typeMap[state.currentCase.type]||'';
+  const tagsEl = document.getElementById('topbarTags');
+  tagsEl.innerHTML = (state.currentCase.tags||[]).slice(0,4).map(t=>`<span class="topbar-tag">${escapeHtml(t)}</span>`).join('');
+}
+
+init();
+
+</script>
+</body>
+</html>
